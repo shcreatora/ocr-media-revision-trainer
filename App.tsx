@@ -207,6 +207,8 @@ export default function OCRMediaRevisionTrainer() {
   const [editingCardText, setEditingCardText] = useState("");
   const [previewDiffs, setPreviewDiffs] = useState<any[]>([]);
   const [authEmail, setAuthEmail] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [cloudUser, setCloudUser] = useState<any>(null);
   const [cloudStatus, setCloudStatus] = useState(CLOUD_ENABLED ? "Cloud ready" : "Cloud off");
   const [cloudLoaded, setCloudLoaded] = useState(false);
@@ -308,10 +310,30 @@ export default function OCRMediaRevisionTrainer() {
     const { error } = await supabase.auth.signInWithOtp({
       email: authEmail.trim(),
       options: {
-        emailRedirectTo: typeof window !== "undefined" ? window.location.href : undefined,
+        shouldCreateUser: true,
+        emailRedirectTo: undefined,
       },
     });
-    setCloudStatus(error ? "Email sign-in failed" : "Check your email to sign in");
+    if (error) {
+      setCloudStatus("Email sign-in failed");
+      return;
+    }
+    setCodeSent(true);
+    setCloudStatus("Check email for code");
+  }
+
+  async function verifyCloudCode() {
+    if (!supabase || !authEmail.trim() || !authCode.trim()) return;
+    const { error } = await supabase.auth.verifyOtp({
+      email: authEmail.trim(),
+      token: authCode.trim(),
+      type: "email",
+    });
+    setCloudStatus(error ? "Code verification failed" : "Cloud signed in");
+    if (!error) {
+      setAuthCode("");
+      setCodeSent(false);
+    }
   }
 
   async function signOutOfCloud() {
@@ -319,6 +341,8 @@ export default function OCRMediaRevisionTrainer() {
     await supabase.auth.signOut();
     setCloudUser(null);
     setCloudLoaded(false);
+    setCodeSent(false);
+    setAuthCode("");
     setCloudStatus("Cloud signed out");
   }
 
@@ -480,9 +504,21 @@ export default function OCRMediaRevisionTrainer() {
                   {!cloudUser ? (
                     <>
                       <Input value={authEmail} onChange={(e: any) => setAuthEmail(e.target.value)} placeholder="Email for cloud sync" />
-                      <Button onClick={signInToCloud} className="w-full">
-                        <LogIn className="mr-2 h-4 w-4" />Sign in for sync
-                      </Button>
+                      {!codeSent ? (
+                        <Button onClick={signInToCloud} className="w-full">
+                          <LogIn className="mr-2 h-4 w-4" />Send email code
+                        </Button>
+                      ) : (
+                        <>
+                          <Input value={authCode} onChange={(e: any) => setAuthCode(e.target.value)} placeholder="Enter email code" />
+                          <Button onClick={verifyCloudCode} className="w-full">
+                            <LogIn className="mr-2 h-4 w-4" />Verify code
+                          </Button>
+                          <Button variant="outline" onClick={() => { setCodeSent(false); setAuthCode(""); }} className="w-full">
+                            Use different email
+                          </Button>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
