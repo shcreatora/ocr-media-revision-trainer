@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { RotateCcw, FolderOpen, Plus, CheckCircle2, EyeOff, Eye, FolderPlus, Cloud, CloudOff, LogIn, LogOut } from "lucide-react";
+
 const Card = ({ className = "", children }) => <div className={className}>{children}</div>;
 const CardHeader = ({ className = "", children }) => <div className={className}>{children}</div>;
 const CardTitle = ({ className = "", children }) => <h2 className={className}>{children}</h2>;
@@ -16,12 +18,12 @@ const Button = ({ className = "", variant, size, children, ...props }) => (
 const Input = ({ className = "", ...props }) => <input {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
 const Textarea = ({ className = "", ...props }) => <textarea {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
 const Badge = ({ className = "", children }) => <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${className}`}>{children}</span>;
-import { RotateCcw, FolderOpen, Plus, CheckCircle2, EyeOff, Eye, FolderPlus, Cloud, CloudOff, LogIn, LogOut } from "lucide-react";
 
 const STORAGE_KEY = "ocr-media-revision-trainer-v6";
-const SUPABASE_URL = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined;
-const SUPABASE_ANON_KEY = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined;
+const SUPABASE_URL = typeof import.meta !== "undefined" ? import.meta.env.VITE_SUPABASE_URL : undefined;
+const SUPABASE_ANON_KEY = typeof import.meta !== "undefined" ? import.meta.env.VITE_SUPABASE_ANON_KEY : undefined;
 const CLOUD_ENABLED = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
+const supabase = CLOUD_ENABLED ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const supabase = CLOUD_ENABLED ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const STOPWORDS = new Set([
@@ -616,3 +618,4 @@ export default function OCRMediaRevisionTrainer(){
     </div>
   );
 }
+
