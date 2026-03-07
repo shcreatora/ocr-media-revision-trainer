@@ -1,90 +1,109 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { RotateCcw, FolderOpen, Plus, CheckCircle2, EyeOff, Eye, FolderPlus, Cloud, CloudOff, LogIn, LogOut } from "lucide-react";
+import {
+  RotateCcw,
+  FolderOpen,
+  Plus,
+  CheckCircle2,
+  EyeOff,
+  Eye,
+  FolderPlus,
+  Cloud,
+  CloudOff,
+  LogIn,
+  LogOut,
+} from "lucide-react";
 
-const Card = ({ className = "", children }) => <div className={className}>{children}</div>;
-const CardHeader = ({ className = "", children }) => <div className={className}>{children}</div>;
-const CardTitle = ({ className = "", children }) => <h2 className={className}>{children}</h2>;
-const CardDescription = ({ className = "", children }) => <p className={className}>{children}</p>;
-const CardContent = ({ className = "", children }) => <div className={className}>{children}</div>;
-const Button = ({ className = "", variant, size, children, ...props }) => (
+const Card = ({ className = "", children }: any) => <div className={className}>{children}</div>;
+const CardHeader = ({ className = "", children }: any) => <div className={className}>{children}</div>;
+const CardTitle = ({ className = "", children }: any) => <h2 className={className}>{children}</h2>;
+const CardDescription = ({ className = "", children }: any) => <p className={className}>{children}</p>;
+const CardContent = ({ className = "", children }: any) => <div className={className}>{children}</div>;
+const Button = ({ className = "", variant, size, children, ...props }: any) => (
   <button
     {...props}
-    className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${variant === "outline" ? "bg-white" : "bg-slate-900 text-white"} ${size === "sm" ? "px-2 py-1 text-xs" : ""} ${className}`}
+    className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${variant === "outline" ? "bg-white text-slate-900" : "bg-slate-900 text-white"} ${size === "sm" ? "px-2 py-1 text-xs" : ""} ${className}`}
   >
     {children}
   </button>
 );
-const Input = ({ className = "", ...props }) => <input {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
-const Textarea = ({ className = "", ...props }) => <textarea {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
-const Badge = ({ className = "", children }) => <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${className}`}>{children}</span>;
+const Input = ({ className = "", ...props }: any) => (
+  <input {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />
+);
+const Textarea = ({ className = "", ...props }: any) => (
+  <textarea {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />
+);
+const Badge = ({ className = "", children }: any) => (
+  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${className}`}>{children}</span>
+);
 
 const STORAGE_KEY = "ocr-media-revision-trainer-v6";
 const SUPABASE_URL = typeof import.meta !== "undefined" ? import.meta.env.VITE_SUPABASE_URL : undefined;
 const SUPABASE_ANON_KEY = typeof import.meta !== "undefined" ? import.meta.env.VITE_SUPABASE_ANON_KEY : undefined;
 const CLOUD_ENABLED = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 const supabase = CLOUD_ENABLED ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-const supabase = CLOUD_ENABLED ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const STOPWORDS = new Set([
-  "the","a","an","and","or","but","to","of","in","on","for","with","by","at","from","is","are","was","were","be","been","being","it","its","that","this","these","those","as","into","than","then","their","there","them","they","he","she","his","her","you","your","i","we","our","us"
+  "the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "for", "with", "by", "at", "from", "is", "are", "was", "were", "be", "been", "being", "it", "its", "that", "this", "these", "those", "as", "into", "than", "then", "their", "there", "them", "they", "he", "she", "his", "her", "you", "your", "i", "we", "our", "us",
 ]);
 
-function normalizeWord(word){
-  return String(word||"").toLowerCase().replace(/[“”‘’]/g,"").replace(/[^a-z0-9]/gi,"");
+function normalizeWord(word: string) {
+  return String(word || "").toLowerCase().replace(/[“”‘’]/g, "").replace(/[^a-z0-9]/gi, "");
 }
 
-function normalizeSentence(text){
-  return String(text||"")
+function normalizeSentence(text: string) {
+  return String(text || "")
     .toLowerCase()
-    .replace(/[“”‘’]/g,"")
-    .replace(/[^a-z0-9\s]/gi," ")
-    .replace(/\s+/g," ")
+    .replace(/[“”‘’]/g, "")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
-function tokenize(text){
-  return String(text||"").match(/\w+|[^\w\s]+|\s+/g) || [];
+function tokenize(text: string) {
+  return String(text || "").match(/\w+|[^\w\s]+|\s+/g) || [];
 }
 
-function chooseGapIndices(text, seed = 0){
+function chooseGapIndices(text: string, seed = 0) {
   const tokens = tokenize(text);
-  const candidates = [];
+  const candidates: number[] = [];
   tokens.forEach((tok, i) => {
     const clean = normalizeWord(tok);
     if (/^[a-z0-9]+$/i.test(clean) && clean.length >= 4 && !STOPWORDS.has(clean)) candidates.push(i);
   });
-  if (!candidates.length) return { tokens, gapIndices: [] };
+  if (!candidates.length) return { tokens, gapIndices: [] as number[] };
   const maxGaps = Math.min(6, Math.max(2, Math.round(candidates.length * 0.3)));
   const rotated = [...candidates.slice(seed % candidates.length), ...candidates.slice(0, seed % candidates.length)];
-  const selected = [];
+  const selected: number[] = [];
   const step = Math.max(1, Math.floor(rotated.length / maxGaps) || 1);
   for (let i = 0; i < rotated.length && selected.length < maxGaps; i += step) selected.push(rotated[i]);
   if (!selected.length) selected.push(rotated[0]);
   return { tokens, gapIndices: selected };
 }
 
-function buildGapPrompt(text, seed = 0){
+function buildGapPrompt(text: string, seed = 0) {
   const { tokens, gapIndices } = chooseGapIndices(text, seed);
-  const blanks = [];
-  const prompt = tokens.map((tok, idx) => {
-    if (gapIndices.includes(idx)) {
-      blanks.push(tok);
-      return "_".repeat(Math.max(4, tok.length));
-    }
-    return tok;
-  }).join("");
+  const blanks: string[] = [];
+  const prompt = tokens
+    .map((tok, idx) => {
+      if (gapIndices.includes(idx)) {
+        blanks.push(tok);
+        return "_".repeat(Math.max(4, tok.length));
+      }
+      return tok;
+    })
+    .join("");
   return { blanks, prompt };
 }
 
-function parseCards(input){
+function parseCards(input: string) {
   const raw = String(input || "").trim();
   if (!raw) return [];
-  const lines = raw.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const lines = raw.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
   if (lines.length === 1) return [raw];
-  const grouped = [];
+  const grouped: string[] = [];
   let current = "";
-  lines.forEach(line => {
+  lines.forEach((line) => {
     const cleaned = line.replace(/^✔\s*/, "");
     if (/^[A-Z].*[-–—].*/.test(cleaned) && current) {
       grouped.push(current.trim());
@@ -97,11 +116,11 @@ function parseCards(input){
   return grouped;
 }
 
-function compareWords(user, correct){
+function compareWords(user: string, correct: string) {
   const userWords = normalizeSentence(user).split(/\s+/).filter(Boolean);
   const correctWords = normalizeSentence(correct).split(/\s+/).filter(Boolean);
   const max = Math.max(userWords.length, correctWords.length);
-  const diffs = [];
+  const diffs: { user: string; correct: string; ok: boolean }[] = [];
   for (let i = 0; i < max; i++) {
     const u = userWords[i] || "";
     const c = correctWords[i] || "";
@@ -110,37 +129,37 @@ function compareWords(user, correct){
   return diffs;
 }
 
-function comparePreview(user, correct){
+function comparePreview(user: string, correct: string) {
   const diffs = compareWords(user, correct);
-  const wrong = diffs.filter(d => !d.ok).length;
+  const wrong = diffs.filter((d) => !d.ok).length;
   return { diffs, wrong, total: diffs.length };
 }
 
-function createFolder(name = "New folder"){
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, name, cards: [] };
+function createFolder(name = "New folder") {
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, cards: [] as string[] };
 }
 
-function createDefaultState(){
+function createDefaultState() {
   const folder = createFolder("General");
-  return { folders: [folder], selectedFolderId: folder.id, meta: {} };
+  return { folders: [folder], selectedFolderId: folder.id, meta: {} as any };
 }
 
-function sanitizeCloudState(data) {
+function sanitizeCloudState(data: any) {
   if (!data || typeof data !== "object") return createDefaultState();
   return {
     folders: Array.isArray(data.folders) ? data.folders : createDefaultState().folders,
     selectedFolderId: data.selectedFolderId || data.folders?.[0]?.id || createDefaultState().selectedFolderId,
-    meta: data.meta && typeof data.meta === "object" ? data.meta : {}
+    meta: data.meta && typeof data.meta === "object" ? data.meta : {},
   };
 }
 
-function Comparison({ diffs }) {
+function Comparison({ diffs }: any) {
   return (
     <div className="space-y-3">
       <div>
         <div className="mb-2 text-sm font-medium">Your answer</div>
         <div className="rounded-2xl border p-4 leading-7">
-          {diffs.map((d, i) => (
+          {diffs.map((d: any, i: number) => (
             <span key={i} className={`mr-2 mb-2 inline-block rounded px-1.5 py-0.5 ${d.ok ? "bg-green-100" : "bg-red-100"}`}>
               {d.user || "∅"}
             </span>
@@ -150,7 +169,7 @@ function Comparison({ diffs }) {
       <div>
         <div className="mb-2 text-sm font-medium">Correct version</div>
         <div className="rounded-2xl border p-4 leading-7">
-          {diffs.map((d, i) => (
+          {diffs.map((d: any, i: number) => (
             <span key={i} className={`mr-2 mb-2 inline-block rounded px-1.5 py-0.5 ${d.ok ? "bg-green-100" : "bg-amber-100"}`}>
               {d.correct || "∅"}
             </span>
@@ -161,7 +180,7 @@ function Comparison({ diffs }) {
   );
 }
 
-export default function OCRMediaRevisionTrainer(){
+export default function OCRMediaRevisionTrainer() {
   const stored = useMemo(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -179,16 +198,16 @@ export default function OCRMediaRevisionTrainer(){
   const [cardIndex, setCardIndex] = useState(0);
   const [phase, setPhase] = useState("read");
   const [rewriteInput, setRewriteInput] = useState("");
-  const [rewriteDiffs, setRewriteDiffs] = useState([]);
+  const [rewriteDiffs, setRewriteDiffs] = useState<any[]>([]);
   const [gapSeed, setGapSeed] = useState(0);
-  const [gapAnswers, setGapAnswers] = useState([]);
-  const [gapResult, setGapResult] = useState(null);
+  const [gapAnswers, setGapAnswers] = useState<string[]>([]);
+  const [gapResult, setGapResult] = useState<any[] | null>(null);
   const [showCardList, setShowCardList] = useState(false);
-  const [editingCardIndex, setEditingCardIndex] = useState(null);
+  const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
   const [editingCardText, setEditingCardText] = useState("");
-  const [previewDiffs, setPreviewDiffs] = useState([]);
+  const [previewDiffs, setPreviewDiffs] = useState<any[]>([]);
   const [authEmail, setAuthEmail] = useState("");
-  const [cloudUser, setCloudUser] = useState(null);
+  const [cloudUser, setCloudUser] = useState<any>(null);
   const [cloudStatus, setCloudStatus] = useState(CLOUD_ENABLED ? "Cloud ready" : "Cloud off");
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
@@ -234,11 +253,7 @@ export default function OCRMediaRevisionTrainer(){
 
     async function loadCloudState() {
       setCloudStatus("Loading cloud save...");
-      const { data, error } = await supabase
-        .from("revision_app_state")
-        .select("state")
-        .eq("user_id", cloudUser.id)
-        .maybeSingle();
+      const { data, error } = await supabase.from("revision_app_state").select("state").eq("user_id", cloudUser.id).maybeSingle();
 
       if (cancelled) return;
 
@@ -262,7 +277,9 @@ export default function OCRMediaRevisionTrainer(){
     }
 
     loadCloudState();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [cloudUser, cloudLoaded]);
 
   useEffect(() => {
@@ -280,9 +297,9 @@ export default function OCRMediaRevisionTrainer(){
     return () => clearTimeout(timeout);
   }, [folders, selectedFolderId, meta, cloudUser, cloudLoaded]);
 
-  const selectedFolder = folders.find(f => f.id === selectedFolderId) || folders[0];
+  const selectedFolder = folders.find((f: any) => f.id === selectedFolderId) || folders[0];
   const folderMeta = meta[selectedFolderId] || { mastered: {}, names: {} };
-  const visibleCards = (selectedFolder?.cards || []).filter((_, i) => !folderMeta.mastered[i]);
+  const visibleCards = (selectedFolder?.cards || []).filter((_: any, i: number) => !folderMeta.mastered[i]);
   const currentCard = visibleCards[cardIndex] || "";
   const gapData = useMemo(() => buildGapPrompt(currentCard, gapSeed), [currentCard, gapSeed]);
 
@@ -291,8 +308,8 @@ export default function OCRMediaRevisionTrainer(){
     const { error } = await supabase.auth.signInWithOtp({
       email: authEmail.trim(),
       options: {
-        emailRedirectTo: typeof window !== "undefined" ? window.location.href : undefined
-      }
+        emailRedirectTo: typeof window !== "undefined" ? window.location.href : undefined,
+      },
     });
     setCloudStatus(error ? "Email sign-in failed" : "Check your email to sign in");
   }
@@ -317,7 +334,7 @@ export default function OCRMediaRevisionTrainer(){
 
   function addFolder() {
     const folder = createFolder(newFolderName || `Folder ${folders.length + 1}`);
-    setFolders(prev => [...prev, folder]);
+    setFolders((prev: any) => [...prev, folder]);
     setSelectedFolderId(folder.id);
     setNewFolderName("");
     resetStudy();
@@ -326,34 +343,36 @@ export default function OCRMediaRevisionTrainer(){
   function addCards() {
     const parsed = parseCards(rawInput);
     if (!parsed.length) return;
-    setFolders(prev => prev.map(f => f.id === selectedFolderId ? { ...f, cards: [...f.cards, ...parsed] } : f));
+    setFolders((prev: any) => prev.map((f: any) => (f.id === selectedFolderId ? { ...f, cards: [...f.cards, ...parsed] } : f)));
     setRawInput("");
     resetStudy();
   }
 
-  function renameCard(realIndex, name) {
-    setMeta(prev => ({
+  function renameCard(realIndex: number, name: string) {
+    setMeta((prev: any) => ({
       ...prev,
       [selectedFolderId]: {
         ...(prev[selectedFolderId] || { mastered: {}, names: {} }),
-        names: { ...((prev[selectedFolderId] || {}).names || {}), [realIndex]: name }
-      }
+        names: { ...((prev[selectedFolderId] || {}).names || {}), [realIndex]: name },
+      },
     }));
   }
 
-  function startEditCard(realIndex) {
+  function startEditCard(realIndex: number) {
     setEditingCardIndex(realIndex);
     setEditingCardText(selectedFolder.cards[realIndex] || "");
   }
 
   function saveEditCard() {
     if (editingCardIndex === null) return;
-    setFolders(prev => prev.map(folder => {
-      if (folder.id !== selectedFolderId) return folder;
-      const nextCards = [...folder.cards];
-      nextCards[editingCardIndex] = editingCardText.trim();
-      return { ...folder, cards: nextCards };
-    }));
+    setFolders((prev: any) =>
+      prev.map((folder: any) => {
+        if (folder.id !== selectedFolderId) return folder;
+        const nextCards = [...folder.cards];
+        nextCards[editingCardIndex] = editingCardText.trim();
+        return { ...folder, cards: nextCards };
+      })
+    );
     setEditingCardIndex(null);
     setEditingCardText("");
     resetStudy();
@@ -364,27 +383,27 @@ export default function OCRMediaRevisionTrainer(){
     setEditingCardText("");
   }
 
-  function toggleMastered(realIndex) {
-    setMeta(prev => ({
+  function toggleMastered(realIndex: number) {
+    setMeta((prev: any) => ({
       ...prev,
       [selectedFolderId]: {
         ...(prev[selectedFolderId] || { mastered: {}, names: {} }),
         mastered: {
           ...((prev[selectedFolderId] || {}).mastered || {}),
-          [realIndex]: !((prev[selectedFolderId] || {}).mastered || {})[realIndex]
-        }
-      }
+          [realIndex]: !((prev[selectedFolderId] || {}).mastered || {})[realIndex],
+        },
+      },
     }));
     resetStudy();
   }
 
   function restartFolder() {
-    setMeta(prev => ({
+    setMeta((prev: any) => ({
       ...prev,
       [selectedFolderId]: {
         ...(prev[selectedFolderId] || { mastered: {}, names: {} }),
-        mastered: {}
-      }
+        mastered: {},
+      },
     }));
     resetStudy();
   }
@@ -396,12 +415,12 @@ export default function OCRMediaRevisionTrainer(){
   }
 
   function checkGaps() {
-    const results = gapData.blanks.map((blank, i) => {
+    const results = gapData.blanks.map((blank: string, i: number) => {
       const user = gapAnswers[i] || "";
       return { blank, user, correct: normalizeWord(user) === normalizeWord(blank) };
     });
     setGapResult(results);
-    setPhase(results.every(r => r.correct) ? "rewrite" : "gap-feedback");
+    setPhase(results.every((r: any) => r.correct) ? "rewrite" : "gap-feedback");
   }
 
   function revealAndCheck() {
@@ -413,8 +432,8 @@ export default function OCRMediaRevisionTrainer(){
   function checkRewrite() {
     const diffs = compareWords(rewriteInput, currentCard);
     setRewriteDiffs(diffs);
-    if (diffs.every(d => d.ok)) {
-      const realIndex = selectedFolder.cards.findIndex(card => card === currentCard);
+    if (diffs.every((d: any) => d.ok)) {
+      const realIndex = selectedFolder.cards.findIndex((card: string) => card === currentCard);
       toggleMastered(realIndex);
       setPhase("rewrite-success");
     } else {
@@ -431,8 +450,10 @@ export default function OCRMediaRevisionTrainer(){
             <CardDescription>Hidden answer mode, red and green corrections, folders, and optional cloud sync.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
-            <Button onClick={restartFolder} className="rounded-2xl"><RotateCcw className="mr-2 h-4 w-4" />Restart folder</Button>
-            <Button variant="outline" onClick={() => setShowCardList(v => !v)} className="rounded-2xl">
+            <Button onClick={restartFolder} className="rounded-2xl">
+              <RotateCcw className="mr-2 h-4 w-4" />Restart folder
+            </Button>
+            <Button variant="outline" onClick={() => setShowCardList((v: boolean) => !v)} className="rounded-2xl">
               {showCardList ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
               {showCardList ? "Hide card list" : "Show card list"}
             </Button>
@@ -448,7 +469,9 @@ export default function OCRMediaRevisionTrainer(){
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
           <Card className="rounded-3xl shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FolderOpen className="h-5 w-5" />Folders</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5" />Folders
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {CLOUD_ENABLED && (
@@ -456,33 +479,46 @@ export default function OCRMediaRevisionTrainer(){
                   <div className="text-sm font-medium">Cloud save</div>
                   {!cloudUser ? (
                     <>
-                      <Input value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email for cloud sync" />
-                      <Button onClick={signInToCloud} className="w-full"><LogIn className="mr-2 h-4 w-4" />Sign in for sync</Button>
+                      <Input value={authEmail} onChange={(e: any) => setAuthEmail(e.target.value)} placeholder="Email for cloud sync" />
+                      <Button onClick={signInToCloud} className="w-full">
+                        <LogIn className="mr-2 h-4 w-4" />Sign in for sync
+                      </Button>
                     </>
                   ) : (
                     <>
                       <div className="text-xs text-slate-600 break-all">Signed in as {cloudUser.email || "account"}</div>
-                      <Button variant="outline" onClick={signOutOfCloud} className="w-full"><LogOut className="mr-2 h-4 w-4" />Sign out</Button>
+                      <Button variant="outline" onClick={signOutOfCloud} className="w-full">
+                        <LogOut className="mr-2 h-4 w-4" />Sign out
+                      </Button>
                     </>
                   )}
                 </div>
-              )
-              {folders.map(folder => (
+              )}
+
+              {folders.map((folder: any) => (
                 <button
                   key={folder.id}
-                  onClick={() => { setSelectedFolderId(folder.id); resetStudy(); }}
+                  onClick={() => {
+                    setSelectedFolderId(folder.id);
+                    resetStudy();
+                  }}
                   className={`w-full rounded-xl border px-3 py-2 text-left ${folder.id === selectedFolderId ? "bg-slate-200 border-slate-800" : "bg-white"}`}
                 >
                   <div className="font-medium">{folder.name}</div>
                   <div className="text-sm text-slate-500">{folder.cards.length} cards</div>
                 </button>
               ))}
+
               <div className="flex gap-2 pt-2">
-                <Input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="New folder" />
-                <Button onClick={addFolder}><FolderPlus className="h-4 w-4" /></Button>
+                <Input value={newFolderName} onChange={(e: any) => setNewFolderName(e.target.value)} placeholder="New folder" />
+                <Button onClick={addFolder}>
+                  <FolderPlus className="h-4 w-4" />
+                </Button>
               </div>
-              <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)} placeholder="Paste flashcards into this folder" className="min-h-[160px]" />
-              <Button onClick={addCards}><Plus className="mr-2 h-4 w-4" />Add cards</Button>
+              <Textarea value={rawInput} onChange={(e: any) => setRawInput(e.target.value)} placeholder="Paste flashcards into this folder" className="min-h-[160px]" />
+              <Button onClick={addCards}>
+                <Plus className="mr-2 h-4 w-4" />Add cards
+              </Button>
             </CardContent>
           </Card>
 
@@ -492,38 +528,50 @@ export default function OCRMediaRevisionTrainer(){
               <CardDescription>{visibleCards.length} cards left to study</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {showCardList && selectedFolder?.cards.map((card, i) => {
-                const name = folderMeta.names[i] || `Card ${i + 1}`;
-                const mastered = !!folderMeta.mastered[i];
-                return (
-                  <div key={i} className={`rounded-xl border p-3 ${mastered ? "bg-green-50" : "bg-white"}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <Input value={name} onChange={e => renameCard(i, e.target.value)} className="max-w-[220px]" />
-                      <div className="flex gap-2 flex-wrap">
-                        <Button size="sm" onClick={() => {
-                          const nextVisibleIndex = visibleCards.indexOf(card);
-                          if (nextVisibleIndex >= 0) setCardIndex(nextVisibleIndex);
-                          setPhase("read");
-                          setRewriteInput("");
-                        }}>Study</Button>
-                        <Button size="sm" variant="outline" onClick={() => startEditCard(i)}>Edit card</Button>
-                        <Button size="sm" variant="outline" onClick={() => toggleMastered(i)}>
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    {editingCardIndex === i && (
-                      <div className="mt-3 space-y-2">
-                        <Textarea value={editingCardText} onChange={e => setEditingCardText(e.target.value)} className="min-h-[120px]" />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={saveEditCard}>Save</Button>
-                          <Button size="sm" variant="outline" onClick={cancelEditCard}>Cancel</Button>
+              {showCardList &&
+                selectedFolder?.cards.map((card: string, i: number) => {
+                  const name = folderMeta.names[i] || `Card ${i + 1}`;
+                  const mastered = !!folderMeta.mastered[i];
+                  return (
+                    <div key={i} className={`rounded-xl border p-3 ${mastered ? "bg-green-50" : "bg-white"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <Input value={name} onChange={(e: any) => renameCard(i, e.target.value)} className="max-w-[220px]" />
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const nextVisibleIndex = visibleCards.indexOf(card);
+                              if (nextVisibleIndex >= 0) setCardIndex(nextVisibleIndex);
+                              setPhase("read");
+                              setRewriteInput("");
+                            }}
+                          >
+                            Study
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => startEditCard(i)}>
+                            Edit card
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => toggleMastered(i)}>
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {editingCardIndex === i && (
+                        <div className="mt-3 space-y-2">
+                          <Textarea value={editingCardText} onChange={(e: any) => setEditingCardText(e.target.value)} className="min-h-[120px]" />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={saveEditCard}>
+                              Save
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={cancelEditCard}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
               {!!currentCard && (
                 <div className="rounded-2xl border bg-slate-50 p-6 space-y-4">
@@ -532,7 +580,7 @@ export default function OCRMediaRevisionTrainer(){
                       <div className="text-sm text-slate-600">Answer first. The card text stays hidden until you submit.</div>
                       <Textarea
                         value={rewriteInput}
-                        onChange={e => setRewriteInput(e.target.value)}
+                        onChange={(e: any) => setRewriteInput(e.target.value)}
                         placeholder="Write everything you remember about this card..."
                         className="min-h-[160px]"
                       />
@@ -552,11 +600,11 @@ export default function OCRMediaRevisionTrainer(){
                   {phase === "gaps" && (
                     <>
                       <div className="rounded-xl border bg-white p-4 leading-7">{gapData.prompt}</div>
-                      {gapData.blanks.map((_, i) => (
+                      {gapData.blanks.map((_: string, i: number) => (
                         <Input
                           key={i}
                           value={gapAnswers[i] || ""}
-                          onChange={e => {
+                          onChange={(e: any) => {
                             const next = [...gapAnswers];
                             next[i] = e.target.value;
                             setGapAnswers(next);
@@ -567,26 +615,37 @@ export default function OCRMediaRevisionTrainer(){
                     </>
                   )}
 
-                  {phase === "gap-feedback" && (
+                  {phase === "gap-feedback" && gapResult && (
                     <>
                       <div className="space-y-2">
-                        {gapResult.map((r, i) => (
+                        {gapResult.map((r: any, i: number) => (
                           <div key={i} className={`rounded-xl border p-3 ${r.correct ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}>
                             <div className="text-sm">Blank {i + 1}</div>
-                            <div className="mt-1 text-sm">Your answer: <span className={r.correct ? "font-medium text-green-700" : "font-medium text-red-700"}>{r.user || "(blank)"}</span></div>
-                            <div className="text-sm">Correct: <span className="font-medium">{r.blank}</span></div>
+                            <div className="mt-1 text-sm">
+                              Your answer: <span className={r.correct ? "font-medium text-green-700" : "font-medium text-red-700"}>{r.user || "(blank)"}</span>
+                            </div>
+                            <div className="text-sm">
+                              Correct: <span className="font-medium">{r.blank}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
                       <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
-                      <Button onClick={() => { setGapSeed(s => s + 1); startGapTest(); }}>Try again</Button>
+                      <Button
+                        onClick={() => {
+                          setGapSeed((s: number) => s + 1);
+                          startGapTest();
+                        }}
+                      >
+                        Try again
+                      </Button>
                     </>
                   )}
 
                   {phase === "rewrite" && (
                     <>
                       <div className="text-sm text-slate-600">Now rewrite the full card. Punctuation does not matter.</div>
-                      <Textarea value={rewriteInput} onChange={e => setRewriteInput(e.target.value)} className="min-h-[160px]" />
+                      <Textarea value={rewriteInput} onChange={(e: any) => setRewriteInput(e.target.value)} className="min-h-[160px]" />
                       <Button onClick={checkRewrite}>Check rewrite</Button>
                     </>
                   )}
@@ -599,18 +658,12 @@ export default function OCRMediaRevisionTrainer(){
                   )}
 
                   {phase === "rewrite-success" && (
-                    <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">
-                      Correct. This card is now mastered and removed from practice.
-                    </div>
+                    <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">Correct. This card is now mastered and removed from practice.</div>
                   )}
                 </div>
               )}
 
-              {!currentCard && (
-                <div className="rounded-2xl border bg-green-50 p-6 text-green-800">
-                  No active cards left in this folder. Restart the folder or add more cards.
-                </div>
-              )}
+              {!currentCard && <div className="rounded-2xl border bg-green-50 p-6 text-green-800">No active cards left in this folder. Restart the folder or add more cards.</div>}
             </CardContent>
           </Card>
         </div>
@@ -618,4 +671,3 @@ export default function OCRMediaRevisionTrainer(){
     </div>
   );
 }
-
