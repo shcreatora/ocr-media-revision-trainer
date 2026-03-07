@@ -1,10 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+const Card = ({ className = "", children }) => <div className={className}>{children}</div>;
+const CardHeader = ({ className = "", children }) => <div className={className}>{children}</div>;
+const CardTitle = ({ className = "", children }) => <h2 className={className}>{children}</h2>;
+const CardDescription = ({ className = "", children }) => <p className={className}>{children}</p>;
+const CardContent = ({ className = "", children }) => <div className={className}>{children}</div>;
+const Button = ({ className = "", variant, size, children, ...props }) => (
+  <button
+    {...props}
+    className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${variant === "outline" ? "bg-white" : "bg-slate-900 text-white"} ${size === "sm" ? "px-2 py-1 text-xs" : ""} ${className}`}
+  >
+    {children}
+  </button>
+);
+const Input = ({ className = "", ...props }) => <input {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
+const Textarea = ({ className = "", ...props }) => <textarea {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
+const Badge = ({ className = "", children }) => <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${className}`}>{children}</span>;
 import { RotateCcw, FolderOpen, Plus, CheckCircle2, EyeOff, Eye, FolderPlus, Cloud, CloudOff, LogIn, LogOut } from "lucide-react";
 
 const STORAGE_KEY = "ocr-media-revision-trainer-v6";
