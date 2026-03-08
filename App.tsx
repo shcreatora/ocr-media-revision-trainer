@@ -580,7 +580,10 @@ export default function OCRMediaRevisionTrainer() {
                     <>
                       <Comparison diffs={compareWords(rewriteInput, currentCard)} />
                       <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
-                      <Button onClick={startGapTest}>Start gap test</Button>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button onClick={startGapTest}>Start gap test</Button>
+                        <Button variant="outline" onClick={() => setGapSeed((s: number) => s + 1)}>Shuffle gaps</Button>
+                      </div>
                     </>
                   )}
 
@@ -608,11 +611,20 @@ export default function OCRMediaRevisionTrainer() {
                       })}
                       {gapResult && <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>}
                       {phase === "gaps" ? (
-                        <Button onClick={checkGaps}>Check gaps</Button>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button onClick={checkGaps}>Check gaps</Button>
+                          <Button variant="outline" onClick={() => setGapSeed((s: number) => s + 1)}>Shuffle gaps</Button>
+                        </div>
                       ) : gapResult?.every((r: any) => r.correct) ? (
-                        <Button onClick={() => setPhase("rewrite")}>Rewrite whole thing</Button>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button onClick={() => setPhase("rewrite")}>Rewrite whole thing</Button>
+                          <Button variant="outline" onClick={() => { setGapSeed((s: number) => s + 1); setGapResult(null); setPhase("gaps"); }}>Shuffle gaps</Button>
+                        </div>
                       ) : (
-                        <Button onClick={() => { setGapSeed((s: number) => s + 1); setGapResult(null); setPhase("gaps"); }}>Try again</Button>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button onClick={() => { setGapSeed((s: number) => s + 1); setGapResult(null); setPhase("gaps"); }}>Try again</Button>
+                          <Button variant="outline" onClick={() => { setGapSeed((s: number) => s + 1); setGapResult(null); }}>Shuffle gaps</Button>
+                        </div>
                       )}
                     </>
                   )}
