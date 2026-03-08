@@ -12,6 +12,7 @@ import {
   CloudOff,
   LogIn,
   LogOut,
+  Trash2,
 } from "lucide-react";
 
 const Card = ({ className = "", children }: any) => <div className={className}>{children}</div>;
@@ -22,22 +23,16 @@ const CardContent = ({ className = "", children }: any) => <div className={class
 const Button = ({ className = "", variant, size, children, ...props }: any) => (
   <button
     {...props}
-    className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${variant === "outline" ? "bg-white text-slate-900" : "bg-slate-900 text-white"} ${size === "sm" ? "px-2 py-1 text-xs" : ""} ${className}`}
+    className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${variant === "outline" ? "bg-white text-slate-900" : "bg-slate-900 text-white"} ${size === "sm" ? "px-2 py-1 text-xs" : ""} ${className}`}
   >
     {children}
   </button>
 );
-const Input = ({ className = "", ...props }: any) => (
-  <input {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />
-);
-const Textarea = ({ className = "", ...props }: any) => (
-  <textarea {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />
-);
-const Badge = ({ className = "", children }: any) => (
-  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${className}`}>{children}</span>
-);
+const Input = ({ className = "", ...props }: any) => <input {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
+const Textarea = ({ className = "", ...props }: any) => <textarea {...props} className={`w-full rounded-xl border px-3 py-2 text-sm ${className}`} />;
+const Badge = ({ className = "", children }: any) => <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${className}`}>{children}</span>;
 
-const STORAGE_KEY = "ocr-media-revision-trainer-v6";
+const STORAGE_KEY = "ocr-media-revision-trainer-v7";
 const SUPABASE_URL = typeof import.meta !== "undefined" ? import.meta.env.VITE_SUPABASE_URL : undefined;
 const SUPABASE_ANON_KEY = typeof import.meta !== "undefined" ? import.meta.env.VITE_SUPABASE_ANON_KEY : undefined;
 const CLOUD_ENABLED = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
@@ -129,12 +124,6 @@ function compareWords(user: string, correct: string) {
   return diffs;
 }
 
-function comparePreview(user: string, correct: string) {
-  const diffs = compareWords(user, correct);
-  const wrong = diffs.filter((d) => !d.ok).length;
-  return { diffs, wrong, total: diffs.length };
-}
-
 function createFolder(name = "New folder") {
   return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, cards: [] as string[] };
 }
@@ -206,7 +195,6 @@ export default function OCRMediaRevisionTrainer() {
   const [showCardList, setShowCardList] = useState(false);
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
   const [editingCardText, setEditingCardText] = useState("");
-  const [previewDiffs, setPreviewDiffs] = useState<any[]>([]);
   const [authEmail, setAuthEmail] = useState("");
   const [authCode, setAuthCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
@@ -257,15 +245,12 @@ export default function OCRMediaRevisionTrainer() {
     async function loadCloudState() {
       setCloudStatus("Loading cloud save...");
       const { data, error } = await supabase.from("revision_app_state").select("state").eq("user_id", cloudUser.id).maybeSingle();
-
       if (cancelled) return;
-
       if (error) {
         setCloudStatus("Cloud load failed");
         setCloudLoaded(true);
         return;
       }
-
       if (data?.state) {
         const next = sanitizeCloudState(data.state);
         setFolders(next.folders);
@@ -275,7 +260,6 @@ export default function OCRMediaRevisionTrainer() {
       } else {
         setCloudStatus("Cloud empty");
       }
-
       setCloudLoaded(true);
     }
 
@@ -287,32 +271,27 @@ export default function OCRMediaRevisionTrainer() {
 
   useEffect(() => {
     if (!supabase || !cloudUser || !cloudLoaded) return;
-
     const timeout = setTimeout(async () => {
       const payload = { folders, selectedFolderId, meta };
       const { error } = await supabase
         .from("revision_app_state")
         .upsert({ user_id: cloudUser.id, state: payload, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-
       setCloudStatus(error ? "Cloud sync failed" : "Cloud synced");
     }, 700);
-
     return () => clearTimeout(timeout);
   }, [folders, selectedFolderId, meta, cloudUser, cloudLoaded]);
 
   const selectedFolder = folders.find((f: any) => f.id === selectedFolderId) || folders[0];
   const folderMeta = meta[selectedFolderId] || { mastered: {}, names: {} };
   const visibleCards = (selectedFolder?.cards || []).filter((_: any, i: number) => !folderMeta.mastered[i]);
-  const currentCard = studyCardRealIndex !== null ? (selectedFolder?.cards?.[studyCardRealIndex] || "") : (visibleCards[cardIndex] || "");
+  const currentCard = studyCardRealIndex !== null ? selectedFolder?.cards?.[studyCardRealIndex] || "" : visibleCards[cardIndex] || "";
   const gapData = useMemo(() => buildGapPrompt(currentCard, gapSeed), [currentCard, gapSeed]);
 
   async function signInToCloud() {
     if (!supabase || !authEmail.trim()) return;
     const { error } = await supabase.auth.signInWithOtp({
       email: authEmail.trim(),
-      options: {
-        shouldCreateUser: true,
-      },
+      options: { shouldCreateUser: true },
     });
     if (error) {
       setCloudStatus(error.message || "Email sign-in failed");
@@ -329,7 +308,7 @@ export default function OCRMediaRevisionTrainer() {
       token: authCode.trim(),
       type: "email",
     });
-    setCloudStatus(error ? (error.message || "Code verification failed") : "Cloud signed in");
+    setCloudStatus(error ? error.message || "Code verification failed" : "Cloud signed in");
     if (!error) {
       setAuthCode("");
       setCodeSent(false);
@@ -355,42 +334,6 @@ export default function OCRMediaRevisionTrainer() {
     setGapAnswers([]);
     setGapResult(null);
     setGapSeed(0);
-  }
-
-  function deleteCard(realIndex: number) {
-    setFolders((prev: any) => prev.map((folder: any) => {
-      if (folder.id !== selectedFolderId) return folder;
-      return { ...folder, cards: folder.cards.filter((_: any, i: number) => i !== realIndex) };
-    }));
-
-    setMeta((prev: any) => {
-      const topicMeta = prev[selectedFolderId] || { mastered: {}, names: {} };
-      const nextMastered: any = {};
-      const nextNames: any = {};
-
-      Object.keys(topicMeta.mastered || {}).forEach((key) => {
-        const i = Number(key);
-        if (i < realIndex) nextMastered[i] = topicMeta.mastered[i];
-        if (i > realIndex) nextMastered[i - 1] = topicMeta.mastered[i];
-      });
-
-      Object.keys(topicMeta.names || {}).forEach((key) => {
-        const i = Number(key);
-        if (i < realIndex) nextNames[i] = topicMeta.names[i];
-        if (i > realIndex) nextNames[i - 1] = topicMeta.names[i];
-      });
-
-      return {
-        ...prev,
-        [selectedFolderId]: {
-          ...topicMeta,
-          mastered: nextMastered,
-          names: nextNames,
-        },
-      };
-    });
-
-    resetStudy();
   }
 
   function addFolder() {
@@ -458,6 +401,27 @@ export default function OCRMediaRevisionTrainer() {
     resetStudy();
   }
 
+  function deleteCard(realIndex: number) {
+    setFolders((prev: any) => prev.map((folder: any) => (folder.id === selectedFolderId ? { ...folder, cards: folder.cards.filter((_: any, i: number) => i !== realIndex) } : folder)));
+    setMeta((prev: any) => {
+      const topicMeta = prev[selectedFolderId] || { mastered: {}, names: {} };
+      const nextMastered: any = {};
+      const nextNames: any = {};
+      Object.keys(topicMeta.mastered || {}).forEach((key) => {
+        const i = Number(key);
+        if (i < realIndex) nextMastered[i] = topicMeta.mastered[i];
+        if (i > realIndex) nextMastered[i - 1] = topicMeta.mastered[i];
+      });
+      Object.keys(topicMeta.names || {}).forEach((key) => {
+        const i = Number(key);
+        if (i < realIndex) nextNames[i] = topicMeta.names[i];
+        if (i > realIndex) nextNames[i - 1] = topicMeta.names[i];
+      });
+      return { ...prev, [selectedFolderId]: { ...topicMeta, mastered: nextMastered, names: nextNames } };
+    });
+    resetStudy();
+  }
+
   function restartFolder() {
     setMeta((prev: any) => ({
       ...prev,
@@ -484,12 +448,6 @@ export default function OCRMediaRevisionTrainer() {
     setPhase("gap-feedback");
   }
 
-  function revealAndCheck() {
-    const result = comparePreview(rewriteInput, currentCard);
-    setPreviewDiffs(result.diffs);
-    setPhase("reveal");
-  }
-
   function checkRewrite() {
     const diffs = compareWords(rewriteInput, currentCard);
     setRewriteDiffs(diffs);
@@ -511,16 +469,14 @@ export default function OCRMediaRevisionTrainer() {
             <CardDescription>Hidden answer mode, red and green corrections, folders, and optional cloud sync.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
-            <Button onClick={restartFolder} className="rounded-2xl">
-              <RotateCcw className="mr-2 h-4 w-4" />Restart folder
-            </Button>
+            <Button onClick={restartFolder} className="rounded-2xl"><RotateCcw className="mr-2 h-4 w-4" />Restart folder</Button>
             <Button variant="outline" onClick={() => setShowCardList((v: boolean) => !v)} className="rounded-2xl">
               {showCardList ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
               {showCardList ? "Hide card list" : "Show card list"}
             </Button>
-            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Green = correct</Badge>
-            <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Red = wrong</Badge>
-            <Badge className={`${cloudUser ? "bg-sky-100 text-sky-800 hover:bg-sky-100" : "bg-slate-100 text-slate-700 hover:bg-slate-100"}`}>
+            <Badge className="bg-green-100 text-green-800">Green = correct</Badge>
+            <Badge className="bg-red-100 text-red-800">Red = wrong</Badge>
+            <Badge className={`${cloudUser ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-700"}`}>
               {cloudUser ? <Cloud className="mr-1 h-3.5 w-3.5" /> : <CloudOff className="mr-1 h-3.5 w-3.5" />}
               {cloudStatus}
             </Badge>
@@ -530,54 +486,37 @@ export default function OCRMediaRevisionTrainer() {
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
           <Card className="rounded-3xl shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FolderOpen className="h-5 w-5" />Folders
-              </CardTitle>
+              <CardTitle className="flex items-center gap-2"><FolderOpen className="h-5 w-5" />Folders</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {CLOUD_ENABLED && (
                 <div className="rounded-2xl border bg-slate-50 p-3 space-y-2">
                   <div className="text-sm font-medium">Cloud save</div>
-                  <div className="text-xs text-slate-500">If email code fails, check Supabase Email auth is enabled.</div>
+                  <div className="text-xs text-slate-500">Sign in with email code.</div>
                   {!cloudUser ? (
                     <>
                       <Input value={authEmail} onChange={(e: any) => setAuthEmail(e.target.value)} placeholder="Email for cloud sync" />
                       {!codeSent ? (
-                        <Button onClick={signInToCloud} className="w-full">
-                          <LogIn className="mr-2 h-4 w-4" />Send email code
-                        </Button>
+                        <Button onClick={signInToCloud} className="w-full"><LogIn className="mr-2 h-4 w-4" />Send email code</Button>
                       ) : (
                         <>
                           <Input value={authCode} onChange={(e: any) => setAuthCode(e.target.value)} placeholder="Enter email code" />
-                          <Button onClick={verifyCloudCode} className="w-full">
-                            <LogIn className="mr-2 h-4 w-4" />Verify code
-                          </Button>
-                          <Button variant="outline" onClick={() => { setCodeSent(false); setAuthCode(""); }} className="w-full">
-                            Use different email
-                          </Button>
+                          <Button onClick={verifyCloudCode} className="w-full"><LogIn className="mr-2 h-4 w-4" />Verify code</Button>
+                          <Button variant="outline" onClick={() => { setCodeSent(false); setAuthCode(""); }} className="w-full">Use different email</Button>
                         </>
                       )}
                     </>
                   ) : (
                     <>
                       <div className="text-xs text-slate-600 break-all">Signed in as {cloudUser.email || "account"}</div>
-                      <Button variant="outline" onClick={signOutOfCloud} className="w-full">
-                        <LogOut className="mr-2 h-4 w-4" />Sign out
-                      </Button>
+                      <Button variant="outline" onClick={signOutOfCloud} className="w-full"><LogOut className="mr-2 h-4 w-4" />Sign out</Button>
                     </>
                   )}
                 </div>
               )}
 
               {folders.map((folder: any) => (
-                <button
-                  key={folder.id}
-                  onClick={() => {
-                    setSelectedFolderId(folder.id);
-                    resetStudy();
-                  }}
-                  className={`w-full rounded-xl border px-3 py-2 text-left ${folder.id === selectedFolderId ? "bg-slate-200 border-slate-800" : "bg-white"}`}
-                >
+                <button key={folder.id} onClick={() => { setSelectedFolderId(folder.id); resetStudy(); }} className={`w-full rounded-xl border px-3 py-2 text-left ${folder.id === selectedFolderId ? "bg-slate-200 border-slate-800" : "bg-white"}`}>
                   <div className="font-medium">{folder.name}</div>
                   <div className="text-sm text-slate-500">{folder.cards.length} cards</div>
                 </button>
@@ -585,14 +524,10 @@ export default function OCRMediaRevisionTrainer() {
 
               <div className="flex gap-2 pt-2">
                 <Input value={newFolderName} onChange={(e: any) => setNewFolderName(e.target.value)} placeholder="New folder" />
-                <Button onClick={addFolder}>
-                  <FolderPlus className="h-4 w-4" />
-                </Button>
+                <Button onClick={addFolder}><FolderPlus className="h-4 w-4" /></Button>
               </div>
               <Textarea value={rawInput} onChange={(e: any) => setRawInput(e.target.value)} placeholder="Paste flashcards into this folder" className="min-h-[160px]" />
-              <Button onClick={addCards}>
-                <Plus className="mr-2 h-4 w-4" />Add cards
-              </Button>
+              <Button onClick={addCards}><Plus className="mr-2 h-4 w-4" />Add cards</Button>
             </CardContent>
           </Card>
 
@@ -602,81 +537,48 @@ export default function OCRMediaRevisionTrainer() {
               <CardDescription>{studyCardRealIndex !== null ? "Studying selected card only" : `${visibleCards.length} cards left to study`}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {studyCardRealIndex !== null && (
-                <Button variant="outline" onClick={() => resetStudy()} className="rounded-2xl">
-                  Back to all cards
-                </Button>
-              )}
-              {showCardList &&
-                selectedFolder?.cards.map((card: string, i: number) => {
-                  const name = folderMeta.names[i] || `Card ${i + 1}`;
-                  const mastered = !!folderMeta.mastered[i];
-                  return (
-                    <div key={i} className={`rounded-xl border p-3 ${mastered ? "bg-green-50" : "bg-white"}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <Input value={name} onChange={(e: any) => renameCard(i, e.target.value)} className="max-w-[220px]" />
-                        <div className="flex gap-2 flex-wrap">
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setStudyCardRealIndex(i);
-                              setCardIndex(0);
-                              setPhase("read");
-                              setRewriteInput("");
-                              setGapAnswers([]);
-                              setGapResult(null);
-                              setGapSeed(0);
-                            }}
-                          >
-                            Study
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => startEditCard(i)}>
-                            Edit card
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => toggleMastered(i)}>
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => deleteCard(i)}>
-                            Delete
-                          </Button>
+              {studyCardRealIndex !== null && <Button variant="outline" onClick={() => resetStudy()} className="rounded-2xl">Back to all cards</Button>}
+
+              {showCardList && selectedFolder?.cards.map((card: string, i: number) => {
+                const name = folderMeta.names[i] || `Card ${i + 1}`;
+                const mastered = !!folderMeta.mastered[i];
+                return (
+                  <div key={i} className={`rounded-xl border p-3 ${mastered ? "bg-green-50" : "bg-white"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <Input value={name} onChange={(e: any) => renameCard(i, e.target.value)} className="max-w-[220px]" />
+                      <div className="flex gap-2 flex-wrap">
+                        <Button size="sm" onClick={() => { setStudyCardRealIndex(i); setCardIndex(0); setPhase("read"); setRewriteInput(""); setGapAnswers([]); setGapResult(null); setGapSeed(0); }}>Study</Button>
+                        <Button size="sm" variant="outline" onClick={() => startEditCard(i)}>Edit card</Button>
+                        <Button size="sm" variant="outline" onClick={() => toggleMastered(i)}><CheckCircle2 className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => deleteCard(i)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
+                    {editingCardIndex === i && (
+                      <div className="mt-3 space-y-2">
+                        <Textarea value={editingCardText} onChange={(e: any) => setEditingCardText(e.target.value)} className="min-h-[120px]" />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={saveEditCard}>Save</Button>
+                          <Button size="sm" variant="outline" onClick={cancelEditCard}>Cancel</Button>
                         </div>
                       </div>
-                      {editingCardIndex === i && (
-                        <div className="mt-3 space-y-2">
-                          <Textarea value={editingCardText} onChange={(e: any) => setEditingCardText(e.target.value)} className="min-h-[120px]" />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={saveEditCard}>
-                              Save
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={cancelEditCard}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                );
+              })}
 
               {!!currentCard && (
                 <div className="rounded-2xl border bg-slate-50 p-6 space-y-4">
                   {phase === "read" && (
                     <>
                       <div className="text-sm text-slate-600">Answer first. The card text stays hidden until you submit.</div>
-                      <Textarea
-                        value={rewriteInput}
-                        onChange={(e: any) => setRewriteInput(e.target.value)}
-                        placeholder="Write everything you remember about this card..."
-                        className="min-h-[160px]"
-                      />
-                      <Button onClick={revealAndCheck}>Reveal mark scheme</Button>
+                      <Textarea value={rewriteInput} onChange={(e: any) => setRewriteInput(e.target.value)} placeholder="Write everything you remember about this card..." className="min-h-[160px]" />
+                      <Button onClick={() => setPhase("reveal")}>Reveal mark scheme</Button>
                     </>
                   )}
 
                   {phase === "reveal" && (
                     <>
-                      <div className="text-sm text-slate-500">Mark scheme</div>
-                      {previewDiffs.length > 0 && <Comparison diffs={previewDiffs} />}
+                      <Comparison diffs={compareWords(rewriteInput, currentCard)} />
                       <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
                       <Button onClick={startGapTest}>Start gap test</Button>
                     </>
@@ -700,60 +602,25 @@ export default function OCRMediaRevisionTrainer() {
                               }}
                               className={`${isCorrect ? "border-green-500 bg-green-100" : isWrong ? "border-red-400 bg-red-50" : ""}`}
                             />
-                            {result && (
-                              <div className={`mt-2 text-sm ${isCorrect ? "text-green-700" : "text-red-700"}`}>
-                                {isCorrect ? "Correct" : `Wrong — correct answer: ${result.blank}`}
-                              </div>
-                            )}
+                            {result && <div className={`mt-2 text-sm ${isCorrect ? "text-green-700" : "text-red-700"}`}>{isCorrect ? "Correct" : `Wrong — correct answer: ${result.blank}`}</div>}
                           </div>
                         );
                       })}
-                      {gapResult && (
-                        <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
-                      )}
+                      {gapResult && <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>}
                       {phase === "gaps" ? (
                         <Button onClick={checkGaps}>Check gaps</Button>
                       ) : gapResult?.every((r: any) => r.correct) ? (
                         <Button onClick={() => setPhase("rewrite")}>Rewrite whole thing</Button>
                       ) : (
-                        <Button
-                          onClick={() => {
-                            setGapSeed((s: number) => s + 1);
-                            setGapResult(null);
-                            setPhase("gaps");
-                          }}
-                        >
-                          Try again
-                        </Button>
+                        <Button onClick={() => { setGapSeed((s: number) => s + 1); setGapResult(null); setPhase("gaps"); }}>Try again</Button>
                       )}
-                    </>
-                  )}
-                      <Button onClick={checkGaps}>Check gaps</Button>
-                    </>
-                  )}
-
-                  
-                      </div>
-                      <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
-                      <Button
-                        onClick={() => {
-                          setGapSeed((s: number) => s + 1);
-                          startGapTest();
-                        }}
-                      >
-                        Try again
-                      </Button>
                     </>
                   )}
 
                   {(phase === "rewrite" || phase === "rewrite-feedback" || phase === "rewrite-success") && (
                     <>
                       <div className="text-sm text-slate-600">Now rewrite the full card. Punctuation does not matter.</div>
-                      <Textarea
-                        value={rewriteInput}
-                        onChange={(e: any) => setRewriteInput(e.target.value)}
-                        className={`min-h-[160px] ${phase === "rewrite-success" ? "border-green-500 bg-green-50" : phase === "rewrite-feedback" ? "border-red-400 bg-red-50" : ""}`}
-                      />
+                      <Textarea value={rewriteInput} onChange={(e: any) => setRewriteInput(e.target.value)} className={`min-h-[160px] ${phase === "rewrite-success" ? "border-green-500 bg-green-50" : phase === "rewrite-feedback" ? "border-red-400 bg-red-50" : ""}`} />
                       {(phase === "rewrite-feedback" || phase === "rewrite-success") && <Comparison diffs={rewriteDiffs} />}
                       <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
                       {phase === "rewrite" ? (
@@ -761,20 +628,13 @@ export default function OCRMediaRevisionTrainer() {
                       ) : phase === "rewrite-success" ? (
                         <div className="space-y-3">
                           <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">Correct. This card is now mastered and removed from practice.</div>
-                          {studyCardRealIndex !== null ? (
-                            <Button variant="outline" onClick={() => resetStudy()}>Back to all cards</Button>
-                          ) : null}
+                          {studyCardRealIndex !== null && <Button variant="outline" onClick={() => resetStudy()}>Back to all cards</Button>}
                         </div>
                       ) : (
                         <Button onClick={() => setPhase("rewrite")}>Try again</Button>
                       )}
                     </>
-                  )} className="min-h-[160px]" />
-                      <Button onClick={checkRewrite}>Check rewrite</Button>
-                    </>
                   )}
-
-                  
                 </div>
               )}
 
