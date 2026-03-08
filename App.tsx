@@ -196,6 +196,7 @@ export default function OCRMediaRevisionTrainer() {
   const [newFolderName, setNewFolderName] = useState("");
   const [rawInput, setRawInput] = useState("");
   const [cardIndex, setCardIndex] = useState(0);
+  const [studyCardRealIndex, setStudyCardRealIndex] = useState<number | null>(null);
   const [phase, setPhase] = useState("read");
   const [rewriteInput, setRewriteInput] = useState("");
   const [rewriteDiffs, setRewriteDiffs] = useState<any[]>([]);
@@ -302,7 +303,7 @@ export default function OCRMediaRevisionTrainer() {
   const selectedFolder = folders.find((f: any) => f.id === selectedFolderId) || folders[0];
   const folderMeta = meta[selectedFolderId] || { mastered: {}, names: {} };
   const visibleCards = (selectedFolder?.cards || []).filter((_: any, i: number) => !folderMeta.mastered[i]);
-  const currentCard = visibleCards[cardIndex] || "";
+  const currentCard = studyCardRealIndex !== null ? (selectedFolder?.cards?.[studyCardRealIndex] || "") : (visibleCards[cardIndex] || "");
   const gapData = useMemo(() => buildGapPrompt(currentCard, gapSeed), [currentCard, gapSeed]);
 
   async function signInToCloud() {
@@ -311,11 +312,10 @@ export default function OCRMediaRevisionTrainer() {
       email: authEmail.trim(),
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: undefined,
       },
     });
     if (error) {
-      setCloudStatus("Email sign-in failed");
+      setCloudStatus(error.message || "Email sign-in failed");
       return;
     }
     setCodeSent(true);
@@ -329,7 +329,7 @@ export default function OCRMediaRevisionTrainer() {
       token: authCode.trim(),
       type: "email",
     });
-    setCloudStatus(error ? "Code verification failed" : "Cloud signed in");
+    setCloudStatus(error ? (error.message || "Code verification failed") : "Cloud signed in");
     if (!error) {
       setAuthCode("");
       setCodeSent(false);
@@ -348,12 +348,49 @@ export default function OCRMediaRevisionTrainer() {
 
   function resetStudy() {
     setCardIndex(0);
+    setStudyCardRealIndex(null);
     setPhase("read");
     setRewriteInput("");
     setRewriteDiffs([]);
     setGapAnswers([]);
     setGapResult(null);
     setGapSeed(0);
+  }
+
+  function deleteCard(realIndex: number) {
+    setFolders((prev: any) => prev.map((folder: any) => {
+      if (folder.id !== selectedFolderId) return folder;
+      return { ...folder, cards: folder.cards.filter((_: any, i: number) => i !== realIndex) };
+    }));
+
+    setMeta((prev: any) => {
+      const topicMeta = prev[selectedFolderId] || { mastered: {}, names: {} };
+      const nextMastered: any = {};
+      const nextNames: any = {};
+
+      Object.keys(topicMeta.mastered || {}).forEach((key) => {
+        const i = Number(key);
+        if (i < realIndex) nextMastered[i] = topicMeta.mastered[i];
+        if (i > realIndex) nextMastered[i - 1] = topicMeta.mastered[i];
+      });
+
+      Object.keys(topicMeta.names || {}).forEach((key) => {
+        const i = Number(key);
+        if (i < realIndex) nextNames[i] = topicMeta.names[i];
+        if (i > realIndex) nextNames[i - 1] = topicMeta.names[i];
+      });
+
+      return {
+        ...prev,
+        [selectedFolderId]: {
+          ...topicMeta,
+          mastered: nextMastered,
+          names: nextNames,
+        },
+      };
+    });
+
+    resetStudy();
   }
 
   function addFolder() {
@@ -444,7 +481,7 @@ export default function OCRMediaRevisionTrainer() {
       return { blank, user, correct: normalizeWord(user) === normalizeWord(blank) };
     });
     setGapResult(results);
-    setPhase(results.every((r: any) => r.correct) ? "rewrite" : "gap-feedback");
+    setPhase("gap-feedback");
   }
 
   function revealAndCheck() {
@@ -457,7 +494,7 @@ export default function OCRMediaRevisionTrainer() {
     const diffs = compareWords(rewriteInput, currentCard);
     setRewriteDiffs(diffs);
     if (diffs.every((d: any) => d.ok)) {
-      const realIndex = selectedFolder.cards.findIndex((card: string) => card === currentCard);
+      const realIndex = studyCardRealIndex !== null ? studyCardRealIndex : selectedFolder.cards.findIndex((card: string) => card === currentCard);
       toggleMastered(realIndex);
       setPhase("rewrite-success");
     } else {
@@ -501,6 +538,7 @@ export default function OCRMediaRevisionTrainer() {
               {CLOUD_ENABLED && (
                 <div className="rounded-2xl border bg-slate-50 p-3 space-y-2">
                   <div className="text-sm font-medium">Cloud save</div>
+                  <div className="text-xs text-slate-500">If email code fails, check Supabase Email auth is enabled.</div>
                   {!cloudUser ? (
                     <>
                       <Input value={authEmail} onChange={(e: any) => setAuthEmail(e.target.value)} placeholder="Email for cloud sync" />
@@ -561,9 +599,14 @@ export default function OCRMediaRevisionTrainer() {
           <Card className="rounded-3xl shadow-lg">
             <CardHeader>
               <CardTitle>{selectedFolder?.name || "Folder"}</CardTitle>
-              <CardDescription>{visibleCards.length} cards left to study</CardDescription>
+              <CardDescription>{studyCardRealIndex !== null ? "Studying selected card only" : `${visibleCards.length} cards left to study`}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {studyCardRealIndex !== null && (
+                <Button variant="outline" onClick={() => resetStudy()} className="rounded-2xl">
+                  Back to all cards
+                </Button>
+              )}
               {showCardList &&
                 selectedFolder?.cards.map((card: string, i: number) => {
                   const name = folderMeta.names[i] || `Card ${i + 1}`;
@@ -576,10 +619,13 @@ export default function OCRMediaRevisionTrainer() {
                           <Button
                             size="sm"
                             onClick={() => {
-                              const nextVisibleIndex = visibleCards.indexOf(card);
-                              if (nextVisibleIndex >= 0) setCardIndex(nextVisibleIndex);
+                              setStudyCardRealIndex(i);
+                              setCardIndex(0);
                               setPhase("read");
                               setRewriteInput("");
+                              setGapAnswers([]);
+                              setGapResult(null);
+                              setGapSeed(0);
                             }}
                           >
                             Study
@@ -589,6 +635,9 @@ export default function OCRMediaRevisionTrainer() {
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => toggleMastered(i)}>
                             <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => deleteCard(i)}>
+                            Delete
                           </Button>
                         </div>
                       </div>
@@ -633,38 +682,57 @@ export default function OCRMediaRevisionTrainer() {
                     </>
                   )}
 
-                  {phase === "gaps" && (
+                  {(phase === "gaps" || phase === "gap-feedback") && (
                     <>
                       <div className="rounded-xl border bg-white p-4 leading-7">{gapData.prompt}</div>
-                      {gapData.blanks.map((_: string, i: number) => (
-                        <Input
-                          key={i}
-                          value={gapAnswers[i] || ""}
-                          onChange={(e: any) => {
-                            const next = [...gapAnswers];
-                            next[i] = e.target.value;
-                            setGapAnswers(next);
+                      {gapData.blanks.map((_: string, i: number) => {
+                        const result = gapResult?.[i];
+                        const isCorrect = !!result?.correct;
+                        const isWrong = !!result && !result.correct;
+                        return (
+                          <div key={i} className={`mt-2 rounded-xl border p-3 ${isCorrect ? "border-green-300 bg-green-50" : isWrong ? "border-red-300 bg-red-50" : "bg-white"}`}>
+                            <Input
+                              value={gapAnswers[i] || ""}
+                              onChange={(e: any) => {
+                                const next = [...gapAnswers];
+                                next[i] = e.target.value;
+                                setGapAnswers(next);
+                              }}
+                              className={`${isCorrect ? "border-green-500 bg-green-100" : isWrong ? "border-red-400 bg-red-50" : ""}`}
+                            />
+                            {result && (
+                              <div className={`mt-2 text-sm ${isCorrect ? "text-green-700" : "text-red-700"}`}>
+                                {isCorrect ? "Correct" : `Wrong — correct answer: ${result.blank}`}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {gapResult && (
+                        <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
+                      )}
+                      {phase === "gaps" ? (
+                        <Button onClick={checkGaps}>Check gaps</Button>
+                      ) : gapResult?.every((r: any) => r.correct) ? (
+                        <Button onClick={() => setPhase("rewrite")}>Rewrite whole thing</Button>
+                      ) : (
+                        <Button
+                          onClick={() => {
+                            setGapSeed((s: number) => s + 1);
+                            setGapResult(null);
+                            setPhase("gaps");
                           }}
-                        />
-                      ))}
+                        >
+                          Try again
+                        </Button>
+                      )}
+                    </>
+                  )}
                       <Button onClick={checkGaps}>Check gaps</Button>
                     </>
                   )}
 
-                  {phase === "gap-feedback" && gapResult && (
-                    <>
-                      <div className="space-y-2">
-                        {gapResult.map((r: any, i: number) => (
-                          <div key={i} className={`rounded-xl border p-3 ${r.correct ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}>
-                            <div className="text-sm">Blank {i + 1}</div>
-                            <div className="mt-1 text-sm">
-                              Your answer: <span className={r.correct ? "font-medium text-green-700" : "font-medium text-red-700"}>{r.user || "(blank)"}</span>
-                            </div>
-                            <div className="text-sm">
-                              Correct: <span className="font-medium">{r.blank}</span>
-                            </div>
-                          </div>
-                        ))}
+                  
                       </div>
                       <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
                       <Button
@@ -678,24 +746,35 @@ export default function OCRMediaRevisionTrainer() {
                     </>
                   )}
 
-                  {phase === "rewrite" && (
+                  {(phase === "rewrite" || phase === "rewrite-feedback" || phase === "rewrite-success") && (
                     <>
                       <div className="text-sm text-slate-600">Now rewrite the full card. Punctuation does not matter.</div>
-                      <Textarea value={rewriteInput} onChange={(e: any) => setRewriteInput(e.target.value)} className="min-h-[160px]" />
+                      <Textarea
+                        value={rewriteInput}
+                        onChange={(e: any) => setRewriteInput(e.target.value)}
+                        className={`min-h-[160px] ${phase === "rewrite-success" ? "border-green-500 bg-green-50" : phase === "rewrite-feedback" ? "border-red-400 bg-red-50" : ""}`}
+                      />
+                      {(phase === "rewrite-feedback" || phase === "rewrite-success") && <Comparison diffs={rewriteDiffs} />}
+                      <div className="rounded-xl border bg-white p-4 leading-7">{currentCard}</div>
+                      {phase === "rewrite" ? (
+                        <Button onClick={checkRewrite}>Check rewrite</Button>
+                      ) : phase === "rewrite-success" ? (
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">Correct. This card is now mastered and removed from practice.</div>
+                          {studyCardRealIndex !== null ? (
+                            <Button variant="outline" onClick={() => resetStudy()}>Back to all cards</Button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <Button onClick={() => setPhase("rewrite")}>Try again</Button>
+                      )}
+                    </>
+                  )} className="min-h-[160px]" />
                       <Button onClick={checkRewrite}>Check rewrite</Button>
                     </>
                   )}
 
-                  {phase === "rewrite-feedback" && (
-                    <>
-                      <Comparison diffs={rewriteDiffs} />
-                      <Button onClick={() => setPhase("rewrite")}>Try again</Button>
-                    </>
-                  )}
-
-                  {phase === "rewrite-success" && (
-                    <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">Correct. This card is now mastered and removed from practice.</div>
-                  )}
+                  
                 </div>
               )}
 
